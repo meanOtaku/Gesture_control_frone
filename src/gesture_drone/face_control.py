@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
-import cv2
 import mediapipe as mp
 import numpy as np
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
 
 @dataclass
@@ -19,34 +21,59 @@ class FaceCommand:
 class FaceController:
     """Turns MediaPipe face landmarks into normalized drone commands."""
 
-    def __init__(self) -> None:
-        self._mp_face_mesh = mp.solutions.face_mesh
-        self._drawing = mp.solutions.drawing_utils
-        self._styles = mp.solutions.drawing_styles
-        self._mesh = self._mp_face_mesh.FaceMesh(
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
+    _CONNECTIONS = (
+        (10, 338), (338, 297), (297, 332), (332, 284), (284, 251), (251, 389),
+        (389, 356), (356, 454), (454, 323), (323, 361), (361, 288), (288, 397),
+        (397, 365), (365, 379), (379, 378), (378, 400), (400, 377), (377, 152),
+        (152, 148), (148, 176), (176, 149), (149, 150), (150, 136), (136, 172),
+        (172, 58), (58, 132), (132, 93), (93, 234), (234, 127), (127, 162),
+        (162, 21), (21, 54), (54, 103), (103, 67), (67, 109), (109, 10),
+        (33, 7), (7, 163), (163, 144), (144, 145), (145, 153), (153, 154),
+        (154, 155), (155, 133), (362, 382), (382, 381), (381, 380), (380, 374),
+        (374, 373), (373, 390), (390, 249), (249, 263), (61, 146), (146, 91),
+        (91, 181), (181, 84), (84, 17), (17, 314), (314, 405), (405, 321),
+        (321, 375), (375, 291), (61, 185), (185, 40), (40, 39), (39, 37),
+        (37, 0), (0, 267), (267, 269), (269, 270), (270, 409), (409, 291),
+    )
+
+    def __init__(self, model_path: Path) -> None:
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Missing MediaPipe face model: {model_path}\n"
+                "Download it with:\n"
+                "  python scripts/download_models.py"
+            )
+
+        options = vision.FaceLandmarkerOptions(
+            base_options=python.BaseOptions(
+                model_asset_path=str(model_path),
+                delegate=python.BaseOptions.Delegate.CPU,
+            ),
+            running_mode=vision.RunningMode.VIDEO,
+            num_faces=1,
+            min_face_detection_confidence=0.5,
+            min_face_presence_confidence=0.5,
             min_tracking_confidence=0.5,
         )
+        self._landmarker = vision.FaceLandmarker.create_from_options(options)
         self._smoothed = FaceCommand()
+        self._timestamp_ms = 0
 
     def close(self) -> None:
-        self._mesh.close()
+        self._landmarker.close()
 
-    def process(self, frame_bgr: np.ndarray) -> tuple[np.ndarray, FaceCommand]:
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        frame_rgb.flags.writeable = False
-        results = self._mesh.process(frame_rgb)
-        frame_rgb.flags.writeable = True
+    def process(self, frame_rgb: np.ndarray) -> tuple[np.ndarray, FaceCommand]:
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.ascontiguousarray(frame_rgb))
+        results = self._landmarker.detect_for_video(image, self._timestamp_ms)
+        self._timestamp_ms += 33
 
-        annotated = frame_bgr.copy()
+        annotated = frame_rgb.copy()
         command = FaceCommand()
 
-        if results.multi_face_landmarks:
-            face = results.multi_face_landmarks[0]
-            command = self._command_from_landmarks(face.landmark)
-            self._draw_landmarks(annotated, face)
+        if results.face_landmarks:
+            landmarks = results.face_landmarks[0]
+            command = self._command_from_landmarks(landmarks)
+            self._draw_landmarks(annotated, landmarks)
 
         self._smoothed = self._smooth(command)
         return annotated, self._smoothed
@@ -88,21 +115,32 @@ class FaceController:
             face_visible=command.face_visible,
         )
 
-    def _draw_landmarks(self, frame_bgr: np.ndarray, face_landmarks) -> None:
-        self._drawing.draw_landmarks(
-            image=frame_bgr,
-            landmark_list=face_landmarks,
-            connections=self._mp_face_mesh.FACEMESH_TESSELATION,
-            landmark_drawing_spec=None,
-            connection_drawing_spec=self._styles.get_default_face_mesh_tesselation_style(),
-        )
-        self._drawing.draw_landmarks(
-            image=frame_bgr,
-            landmark_list=face_landmarks,
-            connections=self._mp_face_mesh.FACEMESH_CONTOURS,
-            landmark_drawing_spec=None,
-            connection_drawing_spec=self._styles.get_default_face_mesh_contours_style(),
-        )
+    def _draw_landmarks(self, frame_rgb: np.ndarray, landmarks) -> None:
+        height, width = frame_rgb.shape[:2]
+        points = [(int(point.x * width), int(point.y * height)) for point in landmarks]
+
+        for start, end in self._CONNECTIONS:
+            self._draw_line(frame_rgb, points[start], points[end], (80, 220, 255))
+
+        for index in (1, 13, 14, 33, 61, 133, 234, 263, 291, 362, 454):
+            self._draw_square(frame_rgb, points[index], (255, 245, 120))
+
+    def _draw_line(self, frame_rgb: np.ndarray, start: tuple[int, int], end: tuple[int, int], color) -> None:
+        x0, y0 = start
+        x1, y1 = end
+        steps = max(abs(x1 - x0), abs(y1 - y0), 1)
+        xs = np.linspace(x0, x1, steps + 1).astype(int)
+        ys = np.linspace(y0, y1, steps + 1).astype(int)
+        valid = (0 <= xs) & (xs < frame_rgb.shape[1]) & (0 <= ys) & (ys < frame_rgb.shape[0])
+        frame_rgb[ys[valid], xs[valid]] = color
+
+    def _draw_square(self, frame_rgb: np.ndarray, center: tuple[int, int], color) -> None:
+        x, y = center
+        x0 = max(0, x - 2)
+        x1 = min(frame_rgb.shape[1], x + 3)
+        y0 = max(0, y - 2)
+        y1 = min(frame_rgb.shape[0], y + 3)
+        frame_rgb[y0:y1, x0:x1] = color
 
     @staticmethod
     def _clamp(value: float) -> float:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import cv2
 import pygame
 import numpy as np
 
@@ -29,12 +28,11 @@ class FaceUi:
                 return False
         return True
 
-    def draw(self, frame_bgr: np.ndarray, command: FaceCommand) -> None:
+    def draw(self, frame_rgb: np.ndarray, command: FaceCommand) -> None:
         self.screen.fill((18, 20, 24))
 
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        frame_rgb = np.rot90(frame_rgb)
-        surface = pygame.surfarray.make_surface(frame_rgb)
+        surface_frame = np.rot90(frame_rgb)
+        surface = pygame.surfarray.make_surface(surface_frame)
         surface = pygame.transform.smoothscale(surface, (self.width, int(self.height * 0.78)))
         self.screen.blit(surface, (0, 0))
 

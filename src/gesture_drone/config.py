@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_PATH = ROOT / "models" / "drone.xml"
+FACE_LANDMARKER_PATH = ROOT / "models" / "face_landmarker.task"
+HAND_LANDMARKER_PATH = ROOT / "models" / "hand_landmarker.task"
 
 
 @dataclass(frozen=True)

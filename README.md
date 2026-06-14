@@ -18,22 +18,38 @@ This is a starter control rig, not a physically exact quadrotor autopilot. The M
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python scripts/download_models.py
+python scripts/fix_macos_sdl.py
 ```
 
 On macOS, allow camera access for the terminal or app that launches Python.
 
 ## Run
 
+Landmark-only viewer:
+
+```bash
+python run_landmarks.py
+```
+
+Full MuJoCo drone demo:
+
 ```bash
 python run.py
 ```
 
-Two windows should appear:
+For the full demo, two windows should appear:
 
 - MuJoCo viewer: drone simulation and render.
 - Pygame face UI: webcam frame, MediaPipe face mesh, and control bars.
 
 Press `Esc` or close the Pygame window to stop.
+
+On macOS, `python scripts/fix_macos_sdl.py` points OpenCV at the same SDL library Pygame uses. If you previously installed `opencv-python` directly, remove it so the app does not load an extra OpenCV wheel:
+
+```bash
+pip uninstall opencv-python
+```
 
 ## Tuning
 

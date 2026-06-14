@@ -4,7 +4,7 @@ import sys
 
 import cv2
 
-from .config import AppConfig, MODEL_PATH
+from .config import AppConfig, FACE_LANDMARKER_PATH, MODEL_PATH
 from .face_control import FaceController, FaceCommand
 from .simulator import DroneSimulator
 from .ui import FaceUi
@@ -21,8 +21,8 @@ def main() -> int:
         print("Could not open webcam. Check camera permissions and camera_index.")
         return 1
 
-    face = FaceController()
     ui = FaceUi(config.ui_width, config.ui_height)
+    face = FaceController(FACE_LANDMARKER_PATH)
     sim = DroneSimulator(MODEL_PATH, config.sim_hz)
     sim.start_viewer()
 
@@ -35,7 +35,7 @@ def main() -> int:
             ok, frame = capture.read()
             if ok:
                 frame = cv2.flip(frame, 1)
-                annotated, latest_command = face.process(frame)
+                annotated, latest_command = face.process(frame[:, :, ::-1])
                 ui.draw(annotated, latest_command)
 
             sim.set_command(latest_command)
