@@ -1,0 +1,51 @@
+<mujoco model="face_gesture_drone">
+  <compiler angle="radian"/>
+  <option timestep="0.005" gravity="0 0 -9.81"/>
+
+  <visual>
+    <global azimuth="135" elevation="-25"/>
+    <rgba haze="0.15 0.18 0.22 1"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.18 0.20 0.22" rgb2="0.25 0.28 0.30" width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.2"/>
+    <material name="body" rgba="0.14 0.30 0.45 1"/>
+    <material name="arm" rgba="0.06 0.07 0.08 1"/>
+    <material name="prop_a" rgba="0.20 0.70 1.00 0.72"/>
+    <material name="prop_b" rgba="1.00 0.42 0.32 0.72"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="0 -3 5" dir="0 1 -1" diffuse="0.9 0.9 0.9"/>
+    <geom name="floor" type="plane" size="12 12 0.1" material="grid"/>
+
+    <body name="drone" pos="0 0 1.4">
+      <freejoint name="root"/>
+      <geom name="body" type="box" size="0.20 0.14 0.05" mass="0.9" material="body"/>
+      <geom name="arm_x" type="box" size="0.62 0.025 0.025" mass="0.12" material="arm"/>
+      <geom name="arm_y" type="box" size="0.025 0.62 0.025" mass="0.12" material="arm"/>
+
+      <body name="front_left_motor" pos="0.46 0.46 0.02">
+        <geom type="cylinder" size="0.08 0.025" mass="0.05" material="arm"/>
+        <geom type="cylinder" size="0.18 0.006" pos="0 0 0.03" mass="0.01" material="prop_a"/>
+      </body>
+      <body name="front_right_motor" pos="0.46 -0.46 0.02">
+        <geom type="cylinder" size="0.08 0.025" mass="0.05" material="arm"/>
+        <geom type="cylinder" size="0.18 0.006" pos="0 0 0.03" mass="0.01" material="prop_b"/>
+      </body>
+      <body name="rear_left_motor" pos="-0.46 0.46 0.02">
+        <geom type="cylinder" size="0.08 0.025" mass="0.05" material="arm"/>
+        <geom type="cylinder" size="0.18 0.006" pos="0 0 0.03" mass="0.01" material="prop_b"/>
+      </body>
+      <body name="rear_right_motor" pos="-0.46 -0.46 0.02">
+        <geom type="cylinder" size="0.08 0.025" mass="0.05" material="arm"/>
+        <geom type="cylinder" size="0.18 0.006" pos="0 0 0.03" mass="0.01" material="prop_a"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <key name="hover" qpos="0 0 1.4 1 0 0 0"/>
+  </keyframe>
+</mujoco>
